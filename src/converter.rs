@@ -1,17 +1,22 @@
 use std::borrow::Cow;
 use regex::Regex;
+use substring::Substring;
 use lazy_static::lazy_static;
 
 #[allow(non_upper_case_globals)]
 fn cyrillic_to_latin(input: &str) -> Cow<str> {
     lazy_static! {
         static ref QazaqCapitals: Regex = Regex::new("^[А-ЯІЁҒҚҢҮҰҺӘӨ]+$").unwrap();
+        static ref JinickeVowels: Regex = Regex::new("[ӘәЕеИиӨөҮүІіЭэ]").unwrap();
     }
     let is_all_caps = QazaqCapitals.is_match(input);
+    let jinicke_exception = input.ends_with("би") || input.starts_with("Бибарыс");
     let mut output = String::new();
-    let mut last_vowel_was_jinicke = false;
+    let mut last_was_jinicke = false;
     let mut last_was_vowel = false;
+    let mut i = 0;
     for character in input.chars() {
+        let next_vowel_jinicke = JinickeVowels.is_match(input.substring(i+1, input.chars().count()));
         let nochange = &character.to_string();
         let replacement = match character {
             'А' => "A",
@@ -37,7 +42,7 @@ fn cyrillic_to_latin(input: &str) -> Cow<str> {
             'З' => "Z",
             'з' => "z",
             'И' => {
-                if last_vowel_was_jinicke { 
+                if next_vowel_jinicke || jinicke_exception { 
                     if is_all_caps { "IY" }
                     else { "Iy" }
                 }
@@ -47,7 +52,7 @@ fn cyrillic_to_latin(input: &str) -> Cow<str> {
                 }
             }
             'и' => {
-                if last_vowel_was_jinicke { "iy" }
+                if next_vowel_jinicke || jinicke_exception { "iy" }
                 else { "ıy" }
             }
             'Й' => "Y",
@@ -79,7 +84,7 @@ fn cyrillic_to_latin(input: &str) -> Cow<str> {
             'У' => {
                 if last_was_vowel { "W" }
                 else {
-                    if last_vowel_was_jinicke { 
+                    if last_was_jinicke { 
                         if is_all_caps { "IW" }
                         else { "Iw" }
                     }
@@ -92,7 +97,7 @@ fn cyrillic_to_latin(input: &str) -> Cow<str> {
             'у' => {
                 if last_was_vowel { "w" }
                 else {
-                    if last_vowel_was_jinicke { "iw" }
+                    if last_was_jinicke { "iw" }
                     else { "uw" }
                 }
             }
@@ -132,15 +137,16 @@ fn cyrillic_to_latin(input: &str) -> Cow<str> {
         };
         output.push_str(&replacement);
         last_was_vowel = false;
+        i += 1;
         let juan_vowels = ['А','а','Ё','ё','О','о','У','у','Ұ','ұ','Ы','ы','Ю','ю','Я','я'];
         if juan_vowels.contains(&character) {
             last_was_vowel = true;
-            last_vowel_was_jinicke = false;
+            last_was_jinicke = false;
         }
         let jinicke_vowels = ['Ә','ә','Е','е','И','и','Ө','ө','Ү','ү','І','і','Э','э',];
         if jinicke_vowels.contains(&character) {
             last_was_vowel = true;
-            last_vowel_was_jinicke = true;
+            last_was_jinicke = true;
         }
     }
     Cow::from(output)
@@ -174,6 +180,36 @@ mod tests {
     #[test]
     fn conversion_from_cyrillic_to_latin_mıy() {
         assert_eq!("mıy", convert("ми"));
+    }
+
+    #[test]
+    fn conversion_from_cyrillic_to_latin_biy() {
+        assert_eq!("biy", convert("би"));
+    }
+
+    #[test]
+    fn conversion_from_cyrillic_to_latin_biybarıs() {
+        assert_eq!("Biybarıs", convert("Бибарыс"));
+    }
+
+    #[test]
+    fn conversion_from_cyrillic_to_latin_bıyıl() {
+        assert_eq!("bıyıl", convert("биыл"));
+    }
+
+    #[test]
+    fn conversion_from_cyrillic_to_latin_biyik() {
+        assert_eq!("biyik", convert("биік"));
+    }
+
+    #[test]
+    fn conversion_from_cyrillic_to_latin_teledıydar() {
+        assert_eq!("teledıydar", convert("теледидар"));
+    }
+
+    #[test]
+    fn conversion_from_cyrillic_to_latin_biylew() {
+        assert_eq!("biylew", convert("билеу"));
     }
 
     #[test]

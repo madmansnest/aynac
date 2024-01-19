@@ -3,7 +3,7 @@ install: release
 
 release: target/release/aynac
 
-target/release/aynac:
+target/release/aynac: src/*.rs
 	cargo build --release
 
 clean:
