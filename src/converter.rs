@@ -13,9 +13,11 @@ fn cyrillic_to_latin(input: &str) -> Cow<str> {
     let jinicke_exception = input.ends_with("би") || input.starts_with("Бибарыс");
     let mut output = String::new();
     let mut last_was_jinicke = false;
+    let mut first_vowel = true;
     let mut last_was_vowel = false;
     let mut i = 0;
     for character in input.chars() {
+        if last_was_vowel { first_vowel = false };
         let next_vowel_jinicke = JinickeVowels.is_match(input.substring(i+1, input.chars().count()));
         let nochange = &character.to_string();
         let replacement = match character {
@@ -82,23 +84,33 @@ fn cyrillic_to_latin(input: &str) -> Cow<str> {
             'Т' => "T",
             'т' => "t",
             'У' => {
-                if last_was_vowel { "W" }
+                if i==0||last_was_vowel { "W" }
                 else {
                     if last_was_jinicke { 
-                        if is_all_caps { "IW" }
-                        else { "Iw" }
+                        if first_vowel {
+                            first_vowel = false;
+                            if is_all_caps { "UW" }
+                            else { "Uw" }
+                        }
+                        else {
+                            if is_all_caps { "IW" }
+                            else { "Iw" }
+                        }
                     }
                     else { 
-                        if is_all_caps { "UW" }
-                        else { "Uw" }
+                        if is_all_caps { "IW" }
+                        else { "Iw" }
                     }
                 }
             }
             'у' => {
-                if last_was_vowel { "w" }
+                if i==0||last_was_vowel { "w" }
                 else {
-                    if last_was_jinicke { "iw" }
-                    else { "uw" }
+                    if first_vowel { first_vowel = false; "uw" }
+                    else {
+                        if last_was_jinicke { "iw" }
+                        else { "ıw" }
+                    }
                 }
             }
             'Ұ' => "U",
@@ -138,7 +150,8 @@ fn cyrillic_to_latin(input: &str) -> Cow<str> {
         output.push_str(&replacement);
         last_was_vowel = false;
         i += 1;
-        let juan_vowels = ['А','а','Ё','ё','О','о','У','у','Ұ','ұ','Ы','ы','Ю','ю','Я','я'];
+        let juan_vowels = ['А','а','Ё','ё','О','о','Ұ','ұ','Ы','ы','Ю','ю','Я','я'];
+// 'У','у',
         if juan_vowels.contains(&character) {
             last_was_vowel = true;
             last_was_jinicke = false;
@@ -228,7 +241,18 @@ mod tests {
     }
 
     #[test]
-    fn conversion_from_cyrillic_to_latin_all_caps() {
-        assert_eq!("JAZUW", convert("ЖАЗУ"));
+    fn conversion_from_cyrillic_to_latin_juwıw() {
+        assert_eq!("juwıw", convert("жуу"));
     }
+
+    #[test]
+    fn conversion_from_cyrillic_to_latin_awruw() {
+        assert_eq!("awrıw", convert("ауру"));
+    }
+
+    #[test]
+    fn conversion_from_cyrillic_to_latin_waqıt() {
+        assert_eq!("waqıt", convert("уақыт"));
+    }
+
 }
